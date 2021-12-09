@@ -94,3 +94,7 @@ class ICourseFactory(ABC):
     def teachers(self) -> List[ITeacher]:
         pass
 
+    @abstractmethod
+    def get_course_by_name(self, name: str) -> ICourse:
+        pass
+

@@ -34,8 +34,8 @@ class Teacher(ITeacher):
 
     def __set_courses(self, value: List[str]):
         for c in value:
-            if not isinstance(c, str) or not c:
-                raise ValueError
+            if not isinstance(c, str):
+                raise ValueError("should contain only course names of type str")
         self.__courses = value
 
     # def has_topic(self, topic: Topic) -> bool:
@@ -72,7 +72,7 @@ class Course(ICourse):
     def __set_teachers(self, value: List[ITeacher]):
         for teacher in value:
             if not isinstance(teacher, ITeacher):
-                raise ValueError
+                raise ValueError("should contain only object that implements ITeacher")
         self.__teachers = value
 
     @property
@@ -112,7 +112,8 @@ class Course(ICourse):
         return ", ".join(x)
 
     def __str__(self):
-        return f"{self.name}\nTeachers:\n{self.list_teachers}\nProgram: {self.list_topics}"
+        teachers = '\nTeachers: \n' + self.list_teachers if self.__teachers else ''
+        return f"{self.name}{teachers}\nProgram: {self.list_topics}"
 
 
 class LocalCourse(Course, ILocalCourse):
@@ -174,7 +175,7 @@ class CourseFactory(ICourseFactory):
 
     def __get_topics_by_course_id(self, course_id: int):
         if not isinstance(course_id, int):
-            raise ValueError
+            raise ValueError("course_id should be of type int")
 
         topics = self.__call_to_db("SELECT topics.name FROM course_topic INNER JOIN courses ON course_topic.course_id"
                                    " = courses.id INNER JOIN topics ON course_topic.topic_id = topics.id "
@@ -245,5 +246,19 @@ class CourseFactory(ICourseFactory):
             teachers.append(Teacher(f"{teacher[1]} {teacher[2]} {teacher[3]}", self.__get_courses_names_by_teacher_id(teacher[0])))
 
         return teachers
+
+    def get_course_by_name(self, name: str) -> ICourse:
+        if not isinstance(name, str):
+            raise ValueError("course name should be of type string")
+
+        course_id = self.__call_to_db("SELECT id FROM courses WHERE name = ?;", name)
+
+        if not course_id:
+            raise ValueError("course with such name does not exist")
+
+        topics = self.__get_topics_by_course_id(course_id[0][0])
+        return Course(name, [], topics)
+
+
 
 
