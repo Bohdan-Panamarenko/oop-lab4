@@ -1,162 +1,21 @@
-import copy
-from os.path import exists
-
-from interfaces import *
-from re import match
-
 import sqlite3
+from os.path import exists
+from typing import List
 
-
-class Teacher(ITeacher):
-
-    def __init__(self, name: str, courses: List[str]):
-        self.__set_name(name)
-        self.__set_courses(courses)
-
-    @property
-    def name(self) -> str:
-        return self.__name
-
-    def __set_name(self, value: str):
-        if not isinstance(value, str):
-            raise ValueError("name should be of type string")
-        if match("[^a-zA-Zа-яА-Я\\s]", value) or len(value) == 0:
-            raise ValueError("name field should store name")
-        self.__name = value
-
-    @property
-    def courses(self) -> List[str]:
-        return copy.copy(self.__courses)
-
-    @property
-    def list_courses(self) -> str:
-        return ", ".join(self.__courses)
-
-    def __set_courses(self, value: List[str]):
-        for c in value:
-            if not isinstance(c, str):
-                raise ValueError("should contain only course names of type str")
-        self.__courses = value
-
-    # def has_topic(self, topic: Topic) -> bool:
-    #     if not isinstance(topic, Topic):
-    #         raise ValueError("topic should be object of class Topic")
-    #     return topic in self.topics
-    #
-    # def add_topic(self, topic: Topic):
-    #     if not isinstance(topic, Topic):
-    #         raise ValueError("topic should be object of class Topic")
-    #     if self.has_topic(topic):
-    #         raise ValueError(f"teacher {self.name} already has topic {topic.value}")
-    #
-    #     self.topics.add(topic)
-    #
-    # def remove_topic(self, topic: Topic):
-    #     if not isinstance(topic, Topic):
-    #         raise ValueError("topic should be object of class Topic")
-    #     if not self.has_topic(topic):
-    #         raise ValueError(f"teacher {self.name} does not have topic {topic.value}")
-    #
-    #     self.topics.remove(topic)
-
-    def __str__(self):
-        return f"{self.name} ведёт курсы: {self.list_courses}"
-
-
-class Course(ICourse):
-    def __init__(self, name, teachers, topics):
-        self.__set_name(name)
-        self.__set_teachers(teachers)
-        self.__set_topics(topics)
-
-    def __set_teachers(self, value: List[ITeacher]):
-        for teacher in value:
-            if not isinstance(teacher, ITeacher):
-                raise ValueError("should contain only object that implements ITeacher")
-        self.__teachers = value
-
-    @property
-    def teachers(self) -> List[ITeacher]:
-        return copy.copy(self.__teachers)
-
-    @property
-    def list_teachers(self) -> str:
-        x = (f"--> {t.__str__()}" for t in self.__teachers)
-        return "\n".join(x)
-
-    @property
-    def name(self) -> str:
-        return self.__name
-
-    # @name.setter
-    def __set_name(self, value: str):
-        if not isinstance(value, str):
-            raise ValueError("name should be of type string")
-        if not value:
-            raise ValueError("name can not be empty")
-        self.__name = value
-
-    def __set_topics(self, value: List[str]):
-        for t in value:
-            if not isinstance(t, str):
-                raise ValueError
-        self.__topics = value
-
-    @property
-    def topics(self) -> List[str]:
-        return copy.copy(self.__topics)
-
-    @property
-    def list_topics(self) -> str:
-        x = (t.__str__() for t in self.__topics)
-        return ", ".join(x)
-
-    def __str__(self):
-        teachers = '\nTeachers: \n' + self.list_teachers if self.__teachers else ''
-        return f"{self.name}{teachers}\nProgram: {self.list_topics}"
-
-
-class LocalCourse(Course, ILocalCourse):
-    def __init__(self, name, teachers, topics, lab_number):
-        super().__init__(name, teachers, topics)
-        self.__set_lab_number(lab_number)
-
-    @property
-    def lab_number(self) -> int:
-        return self.__lab_number
-
-    def __set_lab_number(self, value: int):
-        if not isinstance(value, int):
-            raise ValueError("laboratory number should be of type int")
-        if value < 0:
-            raise ValueError("laboratory number can not be negative")
-        self.__lab_number = value
-
-    def __str__(self):
-        return super().__str__() + f"\nLaboratory number: {self.lab_number}"
-
-
-class OffsiteCourse(Course, IOffsiteCourse):
-    def __init__(self, name, teachers, topics, city):
-        super().__init__(name, teachers, topics)
-        self.__set_city(city)
-
-    @property
-    def city(self) -> str:
-        return self.__city
-
-    def __set_city(self, value: str):
-        if not isinstance(value, str):
-            raise ValueError("city should be of type string")
-        if not value:
-            raise ValueError("city can not be empty")
-        self.__city = value
-
-    def __str__(self):
-        return super().__str__() + f"\nGoing in city: {self.city}"
+from part2.classes.course import Course
+from part2.classes.local_course import LocalCourse
+from part2.classes.offsite_course import OffsiteCourse
+from part2.classes.teacher import Teacher
+from part2.interfaces.i_course import ICourse
+from part2.interfaces.i_course_factory import ICourseFactory
+from part2.interfaces.i_local_course import ILocalCourse
+from part2.interfaces.i_offsite_course import IOffsiteCourse
+from part2.interfaces.i_teacher import ITeacher
 
 
 class CourseFactory(ICourseFactory):
+    """Describes course factory which connects to database and produce courses and teachers"""
+
     def __init__(self, database: str):
         if not isinstance(database, str):
             raise ValueError("database path should be of type string")
@@ -166,6 +25,7 @@ class CourseFactory(ICourseFactory):
         self.__db = database
 
     def __call_to_db(self, call: str, *args):
+        """Makes call to database and returns its response"""
         if not isinstance(call, str):
             raise ValueError("call should be of type string")
         db = sqlite3.connect(self.__db)
@@ -174,6 +34,7 @@ class CourseFactory(ICourseFactory):
         return response
 
     def __get_topics_by_course_id(self, course_id: int):
+        """Request topics which has course with specific course id"""
         if not isinstance(course_id, int):
             raise ValueError("course_id should be of type int")
 
@@ -183,6 +44,7 @@ class CourseFactory(ICourseFactory):
         return list((t[0] for t in topics))
 
     def __get_courses_names_by_teacher_id(self, teacher_id: int):
+        """Request courses which has teacher with specific id"""
         if not isinstance(teacher_id, int):
             raise ValueError
 
@@ -258,7 +120,3 @@ class CourseFactory(ICourseFactory):
 
         topics = self.__get_topics_by_course_id(course_id[0][0])
         return Course(name, [], topics)
-
-
-
-
